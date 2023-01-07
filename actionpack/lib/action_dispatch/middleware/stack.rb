@@ -88,8 +88,8 @@ module ActionDispatch
       middlewares[i]
     end
 
-    def unshift(klass, *args, &block)
-      middlewares.unshift(build_middleware(klass, args, block))
+    def unshift(klass_or_stack, *args, &block)
+      middlewares.unshift(build_middleware(klass_or_stack, args, block))
     end
     ruby2_keywords(:unshift)
 
@@ -97,9 +97,9 @@ module ActionDispatch
       self.middlewares = other.middlewares.dup
     end
 
-    def insert(index, klass, *args, &block)
+    def insert(index, klass_or_stack, *args, &block)
       index = assert_index(index, :before)
-      middlewares.insert(index, build_middleware(klass, args, block))
+      middlewares.insert(index, build_middleware(klass_or_stack, args, block))
     end
     ruby2_keywords(:insert)
 
@@ -152,8 +152,8 @@ module ActionDispatch
       middlewares.insert(target_index + 1, source_middleware)
     end
 
-    def use(klass, *args, &block)
-      middlewares.push(build_middleware(klass, args, block))
+    def use(klass_or_stack, *args, &block)
+      middlewares.push(build_middleware(klass_or_stack, args, block))
     end
     ruby2_keywords(:use)
 
@@ -168,6 +168,8 @@ module ActionDispatch
       end
     end
 
+    alias_method :build_instrumented, :build
+
     private
       def assert_index(index, where)
         i = index.is_a?(Integer) ? index : index_of(index)
@@ -175,8 +177,12 @@ module ActionDispatch
         i
       end
 
-      def build_middleware(klass, args, block)
-        Middleware.new(klass, args, block)
+      def build_middleware(klass_or_stack, args, block)
+        if klass_or_stack.is_a?(MiddlewareStack)
+          klass_or_stack
+        else
+          Middleware.new(klass_or_stack, args, block)
+        end
       end
 
       def index_of(klass)

@@ -1,3 +1,7 @@
+*   Add support for nested middleware stacks
+
+    *Nick Hengeveld*
+
 *   Deprecate `AbstractController::Helpers::MissingHelperError`
 
     *Hartley McGuire*
