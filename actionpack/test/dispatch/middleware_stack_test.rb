@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "abstract_unit"
+require "rails/configuration"
 
 class MiddlewareStackTest < ActiveSupport::TestCase
   class Base
@@ -9,7 +10,6 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     end
 
     def call(env)
-      env[:middleware_run] << self.class if env.key?(:middleware_run)
       @app.call(env)
     end
   end
@@ -216,44 +216,35 @@ class MiddlewareStackTest < ActiveSupport::TestCase
   end
 
   test "can add another middleware stack to a stack" do
-    nested_stack = ActionDispatch::MiddlewareStack.new
+    nested_stack = Rails::Configuration::MiddlewareStackProxy.new
     nested_stack.use BazMiddleware
     nested_stack.use HiyaMiddleware
     @stack.insert_before BarMiddleware, nested_stack
+    @stack.build(nil)
 
-    assert @stack.include?(nested_stack)
-  end
-
-  test "includes nested stacks when building" do
-    nested_stack = ActionDispatch::MiddlewareStack.new
-    nested_stack.use BazMiddleware
-    @stack.insert_before BarMiddleware, nested_stack
-    nested_stack.use HiyaMiddleware
-
-    app = @stack.build(proc { |env| [200, {}, []] })
-    env = { middleware_run: [] }
-    app.call(env)
-
-    assert_equal [FooMiddleware, BazMiddleware, HiyaMiddleware, BarMiddleware], env[:middleware_run]
+    assert_equal FooMiddleware,  @stack[0].klass
+    assert_equal BazMiddleware,  @stack[1].klass
+    assert_equal HiyaMiddleware, @stack[2].klass
+    assert_equal BarMiddleware,  @stack[3].klass
   end
 
   test "can nest multiple levels" do
-    outer_nested_stack = ActionDispatch::MiddlewareStack.new
-    inner_nested_stack = ActionDispatch::MiddlewareStack.new
+    outer_nested_stack = Rails::Configuration::MiddlewareStackProxy.new
+    inner_nested_stack = Rails::Configuration::MiddlewareStackProxy.new
     outer_nested_stack.use BazMiddleware
     outer_nested_stack.use inner_nested_stack
     inner_nested_stack.use HiyaMiddleware
     @stack.insert_before BarMiddleware, outer_nested_stack
+    @stack.build(nil)
 
-    app = @stack.build(proc { |env| [200, {}, []] })
-    env = { middleware_run: [] }
-    app.call(env)
-
-    assert_equal [FooMiddleware, BazMiddleware, HiyaMiddleware, BarMiddleware], env[:middleware_run]
+    assert_equal FooMiddleware,  @stack[0].klass
+    assert_equal BazMiddleware,  @stack[1].klass
+    assert_equal HiyaMiddleware, @stack[2].klass
+    assert_equal BarMiddleware,  @stack[3].klass
   end
 
   test "includes nested stacks when building with instrumentation" do
-    nested_stack = ActionDispatch::MiddlewareStack.new
+    nested_stack = Rails::Configuration::MiddlewareStackProxy.new
     nested_stack.use BazMiddleware
     @stack.insert_before BarMiddleware, nested_stack
     nested_stack.use HiyaMiddleware
@@ -264,12 +255,14 @@ class MiddlewareStackTest < ActiveSupport::TestCase
       events << ActiveSupport::Notifications::Event.new(*args)
     end
 
-    env = { middleware_run: [] }
     ActiveSupport::Notifications.subscribed(subscriber, "process_middleware.action_dispatch") do
       app = @stack.build(proc { |env| [200, {}, []] })
-      app.call(env)
+      app.call({})
     end
 
-    assert_equal [FooMiddleware, BazMiddleware, HiyaMiddleware, BarMiddleware], env[:middleware_run]
+    assert_equal FooMiddleware,  @stack[0].klass
+    assert_equal BazMiddleware,  @stack[1].klass
+    assert_equal HiyaMiddleware, @stack[2].klass
+    assert_equal BarMiddleware,  @stack[3].klass
   end
 end

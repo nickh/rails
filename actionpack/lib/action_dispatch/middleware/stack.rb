@@ -88,8 +88,8 @@ module ActionDispatch
       middlewares[i]
     end
 
-    def unshift(klass_or_stack, *args, &block)
-      middlewares.unshift(build_middleware(klass_or_stack, args, block))
+    def unshift(klass, *args, &block)
+      middlewares.unshift(build_middleware(klass, args, block))
     end
     ruby2_keywords(:unshift)
 
@@ -97,9 +97,9 @@ module ActionDispatch
       self.middlewares = other.middlewares.dup
     end
 
-    def insert(index, klass_or_stack, *args, &block)
+    def insert(index, klass, *args, &block)
       index = assert_index(index, :before)
-      middlewares.insert(index, build_middleware(klass_or_stack, args, block))
+      middlewares.insert(index, build_middleware(klass, args, block))
     end
     ruby2_keywords(:insert)
 
@@ -152,13 +152,27 @@ module ActionDispatch
       middlewares.insert(target_index + 1, source_middleware)
     end
 
-    def use(klass_or_stack, *args, &block)
-      middlewares.push(build_middleware(klass_or_stack, args, block))
+    def use(klass, *args, &block)
+      middlewares.push(build_middleware(klass, args, block))
     end
     ruby2_keywords(:use)
 
+
+    def flattened_middleware
+      middlewares.flat_map do |middleware|
+        if middleware.respond_to?(:merge_into)
+          stack = middleware.merge_into(self.class.new)
+          stack.flattened_middleware
+        else
+          middleware
+        end
+      end
+    end
+
     def build(app = nil, &block)
       instrumenting = ActiveSupport::Notifications.notifier.listening?(InstrumentationProxy::EVENT_NAME)
+
+      @middlewares = flattened_middleware
       middlewares.freeze.reverse.inject(app || block) do |a, e|
         if instrumenting
           e.build_instrumented(a)
@@ -177,11 +191,11 @@ module ActionDispatch
         i
       end
 
-      def build_middleware(klass_or_stack, args, block)
-        if klass_or_stack.is_a?(MiddlewareStack)
-          klass_or_stack
+      def build_middleware(klass, args, block)
+        if klass.respond_to?(:merge_into)
+          klass
         else
-          Middleware.new(klass_or_stack, args, block)
+          Middleware.new(klass, args, block)
         end
       end
 
