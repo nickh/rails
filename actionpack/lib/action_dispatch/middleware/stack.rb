@@ -72,6 +72,10 @@ module ActionDispatch
       yield(self) if block_given?
     end
 
+    def nested_stack
+      self.class.new
+    end
+
     def each(&block)
       @middlewares.each(&block)
     end
@@ -157,22 +161,9 @@ module ActionDispatch
     end
     ruby2_keywords(:use)
 
-
-    def flattened_middleware
-      middlewares.flat_map do |middleware|
-        if middleware.respond_to?(:merge_into)
-          stack = middleware.merge_into(self.class.new)
-          stack.flattened_middleware
-        else
-          middleware
-        end
-      end
-    end
-
     def build(app = nil, &block)
       instrumenting = ActiveSupport::Notifications.notifier.listening?(InstrumentationProxy::EVENT_NAME)
 
-      @middlewares = flattened_middleware
       middlewares.freeze.reverse.inject(app || block) do |a, e|
         if instrumenting
           e.build_instrumented(a)

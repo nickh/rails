@@ -10,6 +10,21 @@ require "minitest/mock"
 module Rails
   module Configuration
     class MiddlewareStackProxyTest < ActiveSupport::TestCase
+      class Base
+        def initialize(app)
+          @app = app
+        end
+
+        def call(env)
+          @app.call(env)
+        end
+      end
+
+      class FooMiddleware < Base; end
+      class BarMiddleware < Base; end
+      class BazMiddleware < Base; end
+      class HiyaMiddleware < Base; end
+
       def setup
         @stack = MiddlewareStackProxy.new
       end
@@ -66,15 +81,58 @@ module Rails
         mock = Minitest::Mock.new
         mock.expect :swap, nil, [:foo]
         mock.expect :delete, nil, [:foo]
+        mock.expect :middlewares, []
+        mock.expect :middlewares=, nil, [[]]
 
         @stack.merge_into mock
         mock.verify
+      end
+
+      def test_nested_stack_proxies
+        root_proxy = MiddlewareStackProxy.new
+        root_proxy.use FooMiddleware
+        root_proxy.use BarMiddleware
+        outer_nested_proxy = root_proxy.create_stack
+        inner_nested_proxy = root_proxy.create_stack
+        outer_nested_proxy.use BazMiddleware
+        outer_nested_proxy.use inner_nested_proxy
+        inner_nested_proxy.use HiyaMiddleware
+        root_proxy.insert_before BarMiddleware, outer_nested_proxy
+
+        root_stack = Minitest::Mock.new
+        outer_nested_stack = Minitest::Mock.new
+        inner_nested_stack = Minitest::Mock.new
+
+        # Expect merge_into to replay operations into each stack
+        root_stack.expect :use, nil, [FooMiddleware]
+        root_stack.expect :use, nil, [BarMiddleware]
+        root_stack.expect :insert_before, nil, [BarMiddleware, outer_nested_proxy]
+        root_stack.expect :nested_stack, outer_nested_stack
+        outer_nested_stack.expect :use, nil, [BazMiddleware]
+        outer_nested_stack.expect :use, nil, [inner_nested_proxy]
+        outer_nested_stack.expect :nested_stack, inner_nested_stack
+        inner_nested_stack.expect :use, nil, [HiyaMiddleware]
+
+        # Expect merge_into to flatten middleware from nested stacks into the root stack
+        inner_nested_stack.expect :middlewares, [HiyaMiddleware]
+        inner_nested_stack.expect :middlewares=, nil, [[HiyaMiddleware]]
+        inner_nested_stack.expect :middlewares, [HiyaMiddleware]
+        outer_nested_stack.expect :middlewares, [BazMiddleware, inner_nested_proxy]
+        outer_nested_stack.expect :middlewares=, nil, [[BazMiddleware, HiyaMiddleware]]
+        outer_nested_stack.expect :middlewares, [BazMiddleware, HiyaMiddleware]
+        root_stack.expect :middlewares, [FooMiddleware, outer_nested_proxy, BarMiddleware]
+        root_stack.expect :middlewares=, nil, [[FooMiddleware, BazMiddleware, HiyaMiddleware, BarMiddleware]]
+        root_stack.expect :middlewares, [FooMiddleware, BazMiddleware, HiyaMiddleware, BarMiddleware]
+
+        merged = root_proxy.merge_into(root_stack)
       end
 
       private
         def assert_playback(msg_name, args)
           mock = Minitest::Mock.new
           mock.expect msg_name, nil, [args]
+          mock.expect :middlewares, []
+          mock.expect :middlewares=, nil, [[]]
           @stack.merge_into(mock)
           mock.verify
         end

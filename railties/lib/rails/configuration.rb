@@ -94,6 +94,15 @@ module Rails
           operation.call(other)
         end
 
+        other.middlewares = other.middlewares.flat_map do |middleware|
+          if middleware.is_a?(self.class)
+            nested_stack = middleware.merge_into(other.nested_stack)
+            nested_stack.middlewares
+          else
+            middleware
+          end
+        end
+
         other
       end
 
