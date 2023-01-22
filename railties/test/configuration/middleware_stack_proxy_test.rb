@@ -15,6 +15,28 @@ module Rails
       class BazMiddleware; end
       class HiyaMiddleware; end
 
+      class TestMiddlewareStack
+        attr_accessor :middlewares
+
+        def initialize
+          @middlewares = []
+        end
+
+        def nested_stack
+          self.class.new
+        end
+
+        def use(middleware)
+          @middlewares << middleware
+        end
+
+        def insert_before(other_middleware, middleware)
+          i = middlewares.index(other_middleware)
+          raise "No such middleware to insert_before: #{other_middleware}" unless i
+          middlewares.insert(i, middleware)
+        end
+      end
+
       def setup
         @stack = MiddlewareStackProxy.new
       end
@@ -97,30 +119,8 @@ module Rails
         inner_nested_proxy.use HiyaMiddleware
         root_proxy.insert_before BarMiddleware, outer_nested_proxy
 
-        inner_nested_stack = Minitest::Mock.new
-        inner_nested_stack.expect :use, nil, [HiyaMiddleware]
-        inner_nested_stack.expect :middlewares, [HiyaMiddleware]
-        inner_nested_stack.expect :middlewares=, nil, [[HiyaMiddleware]]
-        inner_nested_stack.expect :middlewares, [HiyaMiddleware]
-
-        outer_nested_stack = Minitest::Mock.new
-        outer_nested_stack.expect :use, nil, [BazMiddleware]
-        outer_nested_stack.expect :use, nil, [inner_nested_proxy]
-        outer_nested_stack.expect :nested_stack, inner_nested_stack
-        outer_nested_stack.expect :middlewares, [BazMiddleware, inner_nested_proxy]
-        outer_nested_stack.expect :middlewares=, nil, [[BazMiddleware, HiyaMiddleware]]
-        outer_nested_stack.expect :middlewares, [BazMiddleware, HiyaMiddleware]
-
-        root_stack = Minitest::Mock.new
-        root_stack.expect :use, nil, [FooMiddleware]
-        root_stack.expect :use, nil, [BarMiddleware]
-        root_stack.expect :insert_before, nil, [BarMiddleware, outer_nested_proxy]
-        root_stack.expect :nested_stack, outer_nested_stack
-        root_stack.expect :middlewares, [FooMiddleware, outer_nested_proxy, BarMiddleware]
-        root_stack.expect :middlewares=, nil, [[FooMiddleware, BazMiddleware, HiyaMiddleware, BarMiddleware]]
-        root_stack.expect :middlewares, [FooMiddleware, BazMiddleware, HiyaMiddleware, BarMiddleware]
-
-        merged = root_proxy.merge_into(root_stack)
+        merged = root_proxy.merge_into(TestMiddlewareStack.new)
+        assert_equal [FooMiddleware, BazMiddleware, HiyaMiddleware, BarMiddleware], merged.middlewares
       end
 
       private
