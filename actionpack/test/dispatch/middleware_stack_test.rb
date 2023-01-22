@@ -26,6 +26,10 @@ class MiddlewareStackTest < ActiveSupport::TestCase
   end
 
   class NestedMiddleware
+    def nested_middleware?
+      true
+    end
+
     def merge_into
     end
   end

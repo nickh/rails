@@ -53,6 +53,10 @@ module Rails
         self.class.new
       end
 
+      def nested_middleware?
+        true
+      end
+
       def insert_before(...)
         @operations << -> middleware { middleware.insert_before(...) }
       end

@@ -174,7 +174,7 @@ module ActionDispatch
 
     private
       def nested_middleware?(klass)
-        klass.respond_to?(:merge_into)
+        klass.respond_to?(:nested_middleware?) && klass.nested_middleware?
       end
 
       def assert_index(index, where)
