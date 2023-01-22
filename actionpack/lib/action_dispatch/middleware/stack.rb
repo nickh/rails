@@ -172,9 +172,11 @@ module ActionDispatch
       end
     end
 
-    alias_method :build_instrumented, :build
-
     private
+      def nested_middleware?(klass)
+        klass.respond_to?(:merge_into)
+      end
+
       def assert_index(index, where)
         i = index.is_a?(Integer) ? index : index_of(index)
         raise "No such middleware to insert #{where}: #{index.inspect}" unless i
@@ -182,7 +184,7 @@ module ActionDispatch
       end
 
       def build_middleware(klass, args, block)
-        if klass.respond_to?(:merge_into)
+        if nested_middleware?(klass)
           klass
         else
           Middleware.new(klass, args, block)
@@ -191,7 +193,7 @@ module ActionDispatch
 
       def index_of(klass)
         middlewares.index do |m|
-          if klass.respond_to?(:merge_into)
+          if nested_middleware?(klass)
             m == klass
           else
             m.name == klass.name
