@@ -225,7 +225,7 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     assert_equal [], nested_stack.middlewares
   end
 
-  test "accepts a mergable item" do
+  test "accepts a mergeable item" do
     proxy = NestedMiddleware.new
 
     @stack.use proxy
