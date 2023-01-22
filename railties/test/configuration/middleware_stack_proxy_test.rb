@@ -88,6 +88,14 @@ module Rails
         mock.verify
       end
 
+      def test_create_nested_stack_proxy
+        root_proxy = MiddlewareStackProxy.new
+        nested_proxy = root_proxy.create_stack
+
+        assert_not_equal root_proxy, nested_proxy
+        assert nested_proxy.is_a?(MiddlewareStackProxy)
+      end
+
       def test_nested_stack_proxies
         root_proxy = MiddlewareStackProxy.new
         root_proxy.use FooMiddleware

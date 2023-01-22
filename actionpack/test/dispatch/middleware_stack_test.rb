@@ -213,4 +213,10 @@ class MiddlewareStackTest < ActiveSupport::TestCase
   test "includes a middleware" do
     assert_equal true, @stack.include?(ActionDispatch::MiddlewareStack::Middleware.new(BarMiddleware, nil, nil))
   end
+
+  test "returns a new empty stack" do
+    nested_stack = @stack.nested_stack
+
+    assert_equal [], nested_stack.middlewares
+  end
 end
