@@ -25,6 +25,11 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     end
   end
 
+  class NestedMiddleware
+    def merge_into
+    end
+  end
+
   def setup
     @stack = ActionDispatch::MiddlewareStack.new
     @stack.use FooMiddleware
@@ -218,5 +223,12 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     nested_stack = @stack.nested_stack
 
     assert_equal [], nested_stack.middlewares
+  end
+
+  test "accepts a mergable item" do
+    proxy = NestedMiddleware.new
+
+    @stack.use proxy
+    assert_equal proxy, @stack.last
   end
 end
