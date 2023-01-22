@@ -163,7 +163,6 @@ module ActionDispatch
 
     def build(app = nil, &block)
       instrumenting = ActiveSupport::Notifications.notifier.listening?(InstrumentationProxy::EVENT_NAME)
-
       middlewares.freeze.reverse.inject(app || block) do |a, e|
         if instrumenting
           e.build_instrumented(a)
