@@ -3984,6 +3984,31 @@ module ApplicationTests
       assert_nil Rails.application.config.middleware.map(&:name).index("3rd custom middleware")
     end
 
+    test "middleware can be added with a nested stack" do
+      app_file "config/initializers/add_custom_middleware.rb", <<~RUBY
+        class NestedMiddlewareOne
+          def initialize(app, *args); end
+          def new(app); self; end
+        end
+
+        class NestedMiddlewareTwo
+          def initialize(app, *args); end
+          def new(app); self; end
+        end
+
+        custom_stack = Rails.application.config.middleware.create_stack
+        Rails.application.config.middleware.unshift custom_stack
+        custom_stack.use(NestedMiddlewareOne)
+        custom_stack.use(NestedMiddlewareTwo)
+      RUBY
+
+      app "development"
+
+      built_middleware = Rails.application.config.middleware.map(&:klass)
+      assert_equal 0, built_middleware.index(NestedMiddlewareOne)
+      assert_equal 1, built_middleware.index(NestedMiddlewareTwo)
+    end
+
     test "ActiveSupport::TimeWithZone.name uses default Ruby implementation by default" do
       app "development"
       assert_equal false, ActiveSupport::TimeWithZone.methods(false).include?(:name)
