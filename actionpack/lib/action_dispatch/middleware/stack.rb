@@ -191,7 +191,11 @@ module ActionDispatch
 
       def index_of(klass)
         middlewares.index do |m|
-          m.name == klass.name
+          if klass.respond_to?(:merge_into)
+            m == klass
+          else
+            m.name == klass.name
+          end
         end
       end
   end

@@ -99,9 +99,27 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     assert_equal BazMiddleware, @stack[1].klass
   end
 
+  test "insert_before inserts middleware before a nested middleware group" do
+    nested_group = NestedMiddleware.new
+    @stack.use nested_group
+    @stack.insert_before(nested_group, BazMiddleware)
+
+    assert_equal BazMiddleware, @stack[2].klass
+    assert_equal nested_group, @stack[3]
+  end
+
   test "insert_after inserts middleware after another middleware class" do
     @stack.insert_after(BarMiddleware, BazMiddleware)
     assert_equal BazMiddleware, @stack[2].klass
+  end
+
+  test "insert_after inserts middleware after a nested middleware group" do
+    nested_group = NestedMiddleware.new
+    @stack.unshift nested_group
+    @stack.insert_after(nested_group, BazMiddleware)
+
+    assert_equal BazMiddleware, @stack[1].klass
+    assert_equal nested_group, @stack[0]
   end
 
   test "swaps one middleware out for another" do
