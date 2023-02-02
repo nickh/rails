@@ -105,6 +105,7 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     @stack.insert_before(nested_middleware_container, BazMiddleware)
 
     assert_equal BazMiddleware, @stack[2].klass
+    assert @stack[3].is_a?(ActionDispatch::MiddlewareStack::MiddlewareContainer)
     assert_equal nested_middleware_container, @stack[3].container
   end
 
@@ -119,6 +120,7 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     @stack.insert_after(nested_middleware_container, BazMiddleware)
 
     assert_equal BazMiddleware, @stack[1].klass
+    assert @stack[0].is_a?(ActionDispatch::MiddlewareStack::MiddlewareContainer)
     assert_equal nested_middleware_container, @stack[0].container
   end
 
@@ -237,16 +239,11 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     assert_equal true, @stack.include?(ActionDispatch::MiddlewareStack::Middleware.new(BarMiddleware, nil, nil))
   end
 
-  test "returns a new empty stack" do
-    nested_stack = @stack.nested_stack
-
-    assert_equal [], nested_stack.middlewares
-  end
-
-  test "accepts a mergeable item" do
+  test "accepts a mergeable item as a MiddlewareContainer" do
     nested_middleware_container = NestedMiddlewareContainer.new
 
     @stack.use nested_middleware_container
+    assert @stack.last.is_a?(ActionDispatch::MiddlewareStack::MiddlewareContainer)
     assert_equal nested_middleware_container, @stack.last.container
   end
 end

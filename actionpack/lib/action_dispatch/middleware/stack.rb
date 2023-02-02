@@ -102,10 +102,6 @@ module ActionDispatch
       yield(self) if block_given?
     end
 
-    def nested_stack
-      self.class.new
-    end
-
     def each(&block)
       @middlewares.each(&block)
     end
