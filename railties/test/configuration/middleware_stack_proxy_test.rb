@@ -93,8 +93,6 @@ module Rails
         mock = Minitest::Mock.new
         mock.expect :swap, nil, [:foo]
         mock.expect :delete, nil, [:foo]
-        mock.expect :middlewares, []
-        mock.expect :middlewares=, nil, [[]]
 
         @stack.merge_into mock
         mock.verify
@@ -119,16 +117,16 @@ module Rails
         inner_nested_proxy.use HiyaMiddleware
         root_proxy.insert_before BarMiddleware, outer_nested_proxy
 
-        merged = root_proxy.merge_into(TestMiddlewareStack.new)
-        assert_equal [FooMiddleware, BazMiddleware, HiyaMiddleware, BarMiddleware], merged.middlewares
+        root_merged = root_proxy.merge_into(TestMiddlewareStack.new)
+        assert_equal [FooMiddleware, outer_nested_proxy, BarMiddleware], root_merged.middlewares
+        outer_merged = outer_nested_proxy.merge_into(TestMiddlewareStack.new)
+        assert_equal [BazMiddleware, inner_nested_proxy], outer_merged.middlewares
       end
 
       private
         def assert_playback(msg_name, args)
           mock = Minitest::Mock.new
           mock.expect msg_name, nil, [args]
-          mock.expect :middlewares, []
-          mock.expect :middlewares=, nil, [[]]
           @stack.merge_into(mock)
           mock.verify
         end
