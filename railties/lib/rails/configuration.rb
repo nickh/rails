@@ -53,10 +53,6 @@ module Rails
         self.class.new
       end
 
-      def nested_middleware?
-        true
-      end
-
       def insert_before(...)
         @operations << -> middleware { middleware.insert_before(...) }
       end
@@ -96,15 +92,6 @@ module Rails
       def merge_into(other) # :nodoc:
         (@operations + @delete_operations).each do |operation|
           operation.call(other)
-        end
-
-        other.middlewares = other.middlewares.flat_map do |middleware|
-          if middleware.is_a?(self.class)
-            nested_stack = middleware.merge_into(other.nested_stack)
-            nested_stack.middlewares
-          else
-            middleware
-          end
         end
 
         other

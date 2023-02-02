@@ -14,6 +14,10 @@ module ActionDispatch
         @block = block
       end
 
+      def middleware_container?
+        false
+      end
+
       def name; klass.name; end
 
       def ==(middleware)
@@ -39,6 +43,32 @@ module ActionDispatch
 
       def build_instrumented(app)
         InstrumentationProxy.new(build(app), inspect)
+      end
+    end
+
+    class MiddlewareContainer
+      attr_reader :container
+
+      def initialize(container)
+        @container = container
+      end
+
+      def middleware_container?
+        true
+      end
+
+      def flattened_middlewares
+        middlewares.flat_map do |middleware|
+          if middleware.middleware_container?
+            middleware.flattened_middlewares
+          else
+            middleware
+          end
+        end
+      end
+
+      def middlewares
+        @middlewares ||= container.merge_into(MiddlewareStack.new).middlewares
       end
     end
 
@@ -161,8 +191,21 @@ module ActionDispatch
     end
     ruby2_keywords(:use)
 
+    def flatten_middleware!
+      @middlewares = middlewares.flat_map do |middleware|
+        if middleware.middleware_container?
+          middleware.flattened_middlewares
+        else
+          middleware
+        end
+      end
+    end
+
     def build(app = nil, &block)
       instrumenting = ActiveSupport::Notifications.notifier.listening?(InstrumentationProxy::EVENT_NAME)
+
+      flatten_middleware!
+
       middlewares.freeze.reverse.inject(app || block) do |a, e|
         if instrumenting
           e.build_instrumented(a)
@@ -173,10 +216,6 @@ module ActionDispatch
     end
 
     private
-      def nested_middleware?(klass)
-        klass.respond_to?(:nested_middleware?) && klass.nested_middleware?
-      end
-
       def assert_index(index, where)
         i = index.is_a?(Integer) ? index : index_of(index)
         raise "No such middleware to insert #{where}: #{index.inspect}" unless i
@@ -184,8 +223,8 @@ module ActionDispatch
       end
 
       def build_middleware(klass, args, block)
-        if nested_middleware?(klass)
-          klass
+        if klass.respond_to?(:merge_into)
+          MiddlewareContainer.new(klass)
         else
           Middleware.new(klass, args, block)
         end
@@ -193,10 +232,10 @@ module ActionDispatch
 
       def index_of(klass)
         middlewares.index do |m|
-          if nested_middleware?(klass)
-            m == klass
+          if klass.respond_to?(:merge_into)
+            m.middleware_container? && m.container == klass
           else
-            m.name == klass.name
+            !m.middleware_container? && m.name == klass.name
           end
         end
       end
