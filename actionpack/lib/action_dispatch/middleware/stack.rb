@@ -57,18 +57,8 @@ module ActionDispatch
         true
       end
 
-      def flattened_middlewares
-        middlewares.flat_map do |middleware|
-          if middleware.middleware_container?
-            middleware.flattened_middlewares
-          else
-            middleware
-          end
-        end
-      end
-
-      def middlewares
-        @middlewares ||= container.merge_into(MiddlewareStack.new).middlewares
+      def build(app)
+        container.merge_into(MiddlewareStack.new).build(app)
       end
     end
 
@@ -187,23 +177,11 @@ module ActionDispatch
     end
     ruby2_keywords(:use)
 
-    def flatten_middleware!
-      @middlewares = middlewares.flat_map do |middleware|
-        if middleware.middleware_container?
-          middleware.flattened_middlewares
-        else
-          middleware
-        end
-      end
-    end
-
     def build(app = nil, &block)
       instrumenting = ActiveSupport::Notifications.notifier.listening?(InstrumentationProxy::EVENT_NAME)
 
-      flatten_middleware!
-
       middlewares.freeze.reverse.inject(app || block) do |a, e|
-        if instrumenting
+        if instrumenting && !e.middleware_container?
           e.build_instrumented(a)
         else
           e.build(a)
